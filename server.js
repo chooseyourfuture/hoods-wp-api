@@ -10,7 +10,7 @@ var port = process.env.PORT || 1337;
 app.use(cors());
 // app.use(cache('5 minutes'));
 
-var pool = mysql.createConnection({
+var pool = mysql.createPool({
     // connectionLimit: 10,
     host: 'knowyourhoods.fi',
     user: 'knowyedf_wp1',
@@ -23,11 +23,6 @@ var server = app.listen(port, () => {
 
     console.log("app listening at port " + port);
 
-});
-
-pool.connect((error) => {
-    if(error) throw error;
-    console.log("Connected to the database.");
 });
 
 function getFeaturedImage(post_id, meta_key){
