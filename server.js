@@ -18,7 +18,6 @@ var connection = mysql.createConnection({
 });
 
 var server = app.listen(port, () => {
-    var host = server.address().address;
     var port = server.address().port;
 
     console.log("app listening at port " + port);
@@ -33,11 +32,18 @@ function getFeaturedImage(post_id, meta_key){
 
         connection.query(query, (error, results, fields) => {
 
-            if(error) console.log(error);
+            if(error){
+                console.log(error);
+                resolve(error);
+            }
 
-            let value = results[0].meta_value;
+            else{
 
-            resolve(unserialize(value));
+                let value = unserialize(results[0].meta_value);
+
+                resolve(value);
+
+            }
             
     
         });
@@ -54,20 +60,24 @@ app.get('/posts', (req, res) => {
 
     connection.query('SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author FROM wp_posts posts WHERE post_type="post" AND post_status="publish"', (error, results, fields) => {
 
-        if(error) console.log(error);
+        if(error){
+            console.log(error);
+            res.end(JSON.stringify(error));
+        }
+        else{
+            results.forEach((item,index) => {
 
-        results.forEach((item,index) => {
-
-            let thumbnail = unserialize(item.post_thumbnail);
-
-            let f = thumbnail.file.split('/');
-            thumbnail['base_url'] = 'https://blog.hoods.fi/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
-
-            results[index].post_thumbnail = thumbnail;
-
-        });
-
-        res.end(JSON.stringify(results));
+                let thumbnail = unserialize(item.post_thumbnail);
+    
+                let f = thumbnail.file.split('/');
+                thumbnail['base_url'] = 'https://blog.hoods.fi/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+    
+                results[index].post_thumbnail = thumbnail;
+    
+            });
+    
+            res.end(JSON.stringify(results));
+        }
 
     });
 
@@ -77,12 +87,17 @@ app.get('/posts/:slug', (req, res) => {
 
     connection.query('SELECT ID, post_date, post_title, post_name, post_author, post_excerpt, post_content FROM wp_posts WHERE post_type="post" AND post_status="publish" AND post_name="' + req.params.slug + '"', (error, results, fields) => {
 
-        if(error) console.log(error);
+        if(error){
+            console.log(error);
+            res.end(JSON.stringify(error));
+        }
+        else{
 
-        let post = results[0];
+            let post = results[0];
 
-        res.end(JSON.stringify(post));
+            res.end(JSON.stringify(post));
 
+        }
     });
 
 });
@@ -103,17 +118,23 @@ app.get('/authors/:user_id', (req, res) => {
 
     connection.query('SELECT meta_key, meta_value FROM wp_usermeta WHERE user_id="'+ req.params.user_id +'"', (error, results, fields) => {
 
-        if(error) console.log(error);
+        if(error){
+            console.log(error);
+            res.end(JSON.stringify(error));
+        }
+        else{
 
-        let object = {};
-        let items = ['first_name', 'last_name', 'nickname', 'email', 'description'];
-        results.filter((item)=>{
-            return items.includes(item.meta_key);
-        }).forEach((item) => {
-            object[item.meta_key] = item.meta_value
-        });
+            let object = {};
+            let items = ['first_name', 'last_name', 'nickname', 'email', 'description'];
+            results.filter((item)=>{
+                return items.includes(item.meta_key);
+            }).forEach((item) => {
+                object[item.meta_key] = item.meta_value
+            });
+    
+            res.end(JSON.stringify(object));
 
-        res.end(JSON.stringify(object));
+        }
 
     });
 
