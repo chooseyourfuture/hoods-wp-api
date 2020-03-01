@@ -10,7 +10,8 @@ var port = process.env.PORT || 1337;
 app.use(cors());
 // app.use(cache('5 minutes'));
 
-var connection = mysql.createConnection({
+var pool = mysql.createConnection({
+    // connectionLimit: 10,
     host: 'knowyourhoods.fi',
     user: 'knowyedf_wp1',
     password: 'S.TS9dBPtCcAUlQjTv624',
@@ -24,13 +25,18 @@ var server = app.listen(port, () => {
 
 });
 
+pool.connect((error) => {
+    if(error) throw error;
+    console.log("Connected to the database.");
+});
+
 function getFeaturedImage(post_id, meta_key){
 
     return new Promise((resolve, reject) => {
 
         let query = 'SELECT meta_value FROM wp_postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT meta_value FROM wp_postmeta WHERE post_id="'+post_id+'" AND meta_key="_thumbnail_id")';
 
-        connection.query(query, (error, results, fields) => {
+        pool.query(query, (error, results, fields) => {
 
             if(error){
                 console.log(error);
@@ -53,12 +59,12 @@ function getFeaturedImage(post_id, meta_key){
 
 }
 
-app.get('/posts', (req, res) => {
+app.get('/posts', async (req, res) => {
 
     let authorQuery = 'SELECT postmeta.meta_value FROM wp_usermeta postmeta WHERE user_id=posts.post_author AND meta_key="nickname"';
     let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
 
-    connection.query('SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author FROM wp_posts posts WHERE post_type="post" AND post_status="publish"', (error, results, fields) => {
+    pool.query('SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author FROM wp_posts posts WHERE post_type="post" AND post_status="publish"', (error, results, fields) => {
 
         if(error){
             console.log(error);
@@ -83,9 +89,9 @@ app.get('/posts', (req, res) => {
 
 });
 
-app.get('/posts/:slug', (req, res) => {
+app.get('/posts/:slug', async (req, res) => {
 
-    connection.query('SELECT ID, post_date, post_title, post_name, post_author, post_excerpt, post_content FROM wp_posts WHERE post_type="post" AND post_status="publish" AND post_name="' + req.params.slug + '"', (error, results, fields) => {
+    pool.query('SELECT ID, post_date, post_title, post_name, post_author, post_excerpt, post_content FROM wp_posts WHERE post_type="post" AND post_status="publish" AND post_name="' + req.params.slug + '"', (error, results, fields) => {
 
         if(error){
             console.log(error);
@@ -102,7 +108,7 @@ app.get('/posts/:slug', (req, res) => {
 
 });
 
-app.get('/posts/:post_id/image', (req, res) => {
+app.get('/posts/:post_id/image', async (req, res) => {
 
     getFeaturedImage(req.params.post_id).then(image => {
 /*         let f = image.file.split('/');
@@ -114,9 +120,9 @@ app.get('/posts/:post_id/image', (req, res) => {
 
 });
 
-app.get('/authors/:user_id', (req, res) => {
+app.get('/authors/:user_id', async (req, res) => {
 
-    connection.query('SELECT meta_key, meta_value FROM wp_usermeta WHERE user_id="'+ req.params.user_id +'"', (error, results, fields) => {
+    pool.query('SELECT meta_key, meta_value FROM wp_usermeta WHERE user_id="'+ req.params.user_id +'"', (error, results, fields) => {
 
         if(error){
             console.log(error);
