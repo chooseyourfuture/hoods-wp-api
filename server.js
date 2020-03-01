@@ -8,7 +8,7 @@ var cache = apicache.middleware;
 var port = process.env.PORT || 1337;
 
 app.use(cors());
-app.use(cache('5 minutes'));
+// app.use(cache('5 minutes'));
 
 var connection = mysql.createConnection({
     host: 'knowyourhoods.fi',
