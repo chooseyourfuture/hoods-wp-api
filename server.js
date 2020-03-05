@@ -4,10 +4,12 @@ var mysql = require('mysql');
 var cors = require('cors');
 var unserialize = require('locutus/php/var/unserialize');
 var apicache = require('apicache');
+var compression = require('compression');
 var cache = apicache.middleware;
 var port = process.env.PORT || 1337;
 
 app.use(cors());
+app.use(compression());
 // app.use(cache('5 minutes'));
 
 var pool = mysql.createPool({
