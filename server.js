@@ -1,6 +1,7 @@
 var express = require('express');
 var app = express();
 var mysql = require('mysql');
+var md5 = require('md5')
 var cors = require('cors');
 var unserialize = require('locutus/php/var/unserialize');
 var apicache = require('apicache');
@@ -88,7 +89,10 @@ app.get('/posts', async (req, res) => {
 
 app.get('/posts/:slug', async (req, res) => {
 
-    pool.query('SELECT ID, post_date, post_title, post_name, post_author, post_excerpt, post_content FROM wp_posts WHERE post_type="post" AND post_status="publish" AND post_name="' + req.params.slug + '"', (error, results, fields) => {
+    let fields = 'yoast.title, yoast.description, yoast.twitter_title, yoast.twitter_image, yoast.twitter_description, yoast.open_graph_title, yoast.open_graph_description, yoast.open_graph_image';
+    let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
+
+    pool.query('SELECT posts.ID, posts.post_date, posts.post_title, posts.post_name, posts.post_author, posts.post_excerpt, posts.post_content, ('+ featuredImageQuery +') as post_thumbnail, ' + fields + ' FROM wp_posts posts LEFT OUTER JOIN wp_yoast_indexable yoast ON yoast.object_id = posts.ID WHERE post_type="post" AND posts.post_status="publish" AND posts.post_name="' + req.params.slug + '"', (error, results, fields) => {
 
         if(error){
             console.log(error);
@@ -98,7 +102,48 @@ app.get('/posts/:slug', async (req, res) => {
 
             let post = results[0];
 
+            let thumbnail = unserialize(post.post_thumbnail);
+            let f = thumbnail.file.split('/');
+            thumbnail['base_url'] = 'https://blog.hoods.fi/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+            post['post_thumbnail'] = thumbnail;
+
             res.end(JSON.stringify(post));
+
+        }
+    });
+
+});
+
+app.get('/authors/:id', async (req, res) => {
+
+    let keys = ['first_name', 'last_name', 'description', 'nickname'];
+    let id = req.params.id;
+
+    let queries = [];
+    keys.forEach(key => {
+        let item = `meta_key = "${key}"`
+        queries.push(item);
+    });
+    let queryString = queries.join(' OR ');
+
+    pool.query(`SELECT meta_key, meta_value, (SELECT user_email FROM wp_users WHERE ID = "${id}") as email FROM wp_usermeta WHERE user_id = "${id}" AND (${queryString})`, (error, results, fields) => {
+
+        if(error){
+            console.log(error);
+            res.end(JSON.stringify(error));
+        }
+        else{
+
+            let author = {};
+            results.forEach((meta) => {
+                author[meta.meta_key] = meta.meta_value;
+            });
+            author['email'] = results[0].email;
+            author['avatar'] = 'http://gravatar.com/avatar/' + md5(author.email) + '?s=120&d=mm';
+
+            
+
+            res.end(JSON.stringify(author));
 
         }
     });
@@ -114,31 +159,5 @@ app.get('/posts/:post_id/image', async (req, res) => {
         } */
         res.end(JSON.stringify(image));
     })
-
-});
-
-app.get('/authors/:user_id', async (req, res) => {
-
-    pool.query('SELECT meta_key, meta_value FROM wp_usermeta WHERE user_id="'+ req.params.user_id +'"', (error, results, fields) => {
-
-        if(error){
-            console.log(error);
-            res.end(JSON.stringify(error));
-        }
-        else{
-
-            let object = {};
-            let items = ['first_name', 'last_name', 'nickname', 'email', 'description'];
-            results.filter((item)=>{
-                return items.includes(item.meta_key);
-            }).forEach((item) => {
-                object[item.meta_key] = item.meta_value
-            });
-    
-            res.end(JSON.stringify(object));
-
-        }
-
-    });
 
 });
