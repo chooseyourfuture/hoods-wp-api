@@ -1,24 +1,23 @@
+require('dotenv').config();
 var express = require('express');
 var app = express();
 var mysql = require('mysql');
 var md5 = require('md5')
 var cors = require('cors');
 var unserialize = require('locutus/php/var/unserialize');
-var apicache = require('apicache');
 var compression = require('compression');
-var cache = apicache.middleware;
 var port = process.env.PORT || 1337;
+var cache = require('./middlewares/cache');
 
 app.use(cors());
 app.use(compression());
-// app.use(cache('5 minutes'));
 
 var pool = mysql.createPool({
     // connectionLimit: 10,
-    host: 'knowyourhoods.fi',
-    user: 'knowyedf_wp1',
-    password: 'S.TS9dBPtCcAUlQjTv624',
-    database: 'knowyedf_wp1'
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_DATABASE
 });
 
 var server = app.listen(port, () => {
@@ -57,7 +56,7 @@ function getFeaturedImage(post_id, meta_key){
 
 }
 
-app.get('/posts', async (req, res) => {
+app.get('/posts', cache.get, async (req, res, next) => {
 
     let authorQuery = 'SELECT postmeta.meta_value FROM wp_usermeta postmeta WHERE user_id=posts.post_author AND meta_key="nickname"';
     let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
@@ -80,22 +79,25 @@ app.get('/posts', async (req, res) => {
     
             });
     
-            res.end(JSON.stringify(results));
+            res.locals.data = JSON.stringify(results);
+            return next();
         }
 
     });
 
+}, cache.set, (req, res) => {
+    res.end(res.locals.data);
 });
 
-app.get('/posts/:slug', async (req, res) => {
+app.get('/posts/:slug', cache.get, async (req, res, next) => {
 
     let fields = 'yoast.title, yoast.description, yoast.twitter_title, yoast.twitter_image, yoast.twitter_description, yoast.open_graph_title, yoast.open_graph_description, yoast.open_graph_image';
     let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
 
-    let next = 'SELECT posts2.post_name FROM wp_posts posts2 WHERE post_type="post" AND post_status="publish" AND post_date > posts.post_date ORDER BY post_date LIMIT 1';
-    let prev = 'SELECT posts2.post_name FROM wp_posts posts2 WHERE post_type="post" AND post_status="publish" AND post_date < posts.post_date ORDER BY post_date DESC LIMIT 1';
+    let nextPost = 'SELECT posts2.post_name FROM wp_posts posts2 WHERE post_type="post" AND post_status="publish" AND post_date > posts.post_date ORDER BY post_date LIMIT 1';
+    let prevPost = 'SELECT posts2.post_name FROM wp_posts posts2 WHERE post_type="post" AND post_status="publish" AND post_date < posts.post_date ORDER BY post_date DESC LIMIT 1';
 
-    pool.query('SELECT posts.ID, posts.post_date, posts.post_title, posts.post_name, posts.post_author, posts.post_excerpt, posts.post_content, ('+ featuredImageQuery +') as post_thumbnail, (' + prev + ') as previous, (' + next + ') as next, ' + fields + ' FROM wp_posts posts LEFT OUTER JOIN wp_yoast_indexable yoast ON yoast.object_id = posts.ID WHERE post_type="post" AND posts.post_status="publish" AND posts.post_name="' + req.params.slug + '"', (error, results, fields) => {
+    pool.query('SELECT posts.ID, posts.post_date, posts.post_title, posts.post_name, posts.post_author, posts.post_excerpt, posts.post_content, ('+ featuredImageQuery +') as post_thumbnail, (' + prevPost + ') as previous, (' + nextPost + ') as next, ' + fields + ' FROM wp_posts posts LEFT OUTER JOIN wp_yoast_indexable yoast ON yoast.object_id = posts.ID WHERE post_type="post" AND posts.post_status="publish" AND posts.post_name="' + req.params.slug + '"', (error, results, fields) => {
 
         if(error){
             console.log(error);
@@ -110,11 +112,14 @@ app.get('/posts/:slug', async (req, res) => {
             thumbnail['base_url'] = 'https://blog.hoods.fi/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
             post['post_thumbnail'] = thumbnail;
 
-            res.end(JSON.stringify(post));
+            res.locals.data = JSON.stringify(post);
+            return next();
 
         }
     });
 
+}, cache.set, (req, res) => {
+    res.end(res.locals.data);
 });
 
 app.get('/authors/:id', async (req, res) => {
