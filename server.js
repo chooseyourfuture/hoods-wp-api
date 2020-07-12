@@ -112,7 +112,7 @@ app.get('/posts/:slug', cache.get, async (req, res, next) => {
             thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
             post['post_thumbnail'] = thumbnail;
 
-            let content = post['post_content'].replace("\"/wp-content/", '"' + process.env.BASE_URL + '/wp-content/');
+            let content = post['post_content'].replace(/\"\/wp-content\//g, '"' + process.env.BASE_URL + '/wp-content/');
 
             post['post_content'] = content;
 
