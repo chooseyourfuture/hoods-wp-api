@@ -73,8 +73,8 @@ app.get('/posts', cache.get, async (req, res, next) => {
                 let thumbnail = unserialize(item.post_thumbnail);
     
                 let f = thumbnail.file.split('/');
-                thumbnail['base_url'] = 'https://blog.hoods.fi/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
-    
+                thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+
                 results[index].post_thumbnail = thumbnail;
     
             });
@@ -109,8 +109,12 @@ app.get('/posts/:slug', cache.get, async (req, res, next) => {
 
             let thumbnail = unserialize(post.post_thumbnail);
             let f = thumbnail.file.split('/');
-            thumbnail['base_url'] = 'https://blog.hoods.fi/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+            thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
             post['post_thumbnail'] = thumbnail;
+
+            let content = post['post_content'].replace("\"/wp-content/", '"' + process.env.BASE_URL + '/wp-content/');
+
+            post['post_content'] = content;
 
             res.locals.data = JSON.stringify(post);
             return next();

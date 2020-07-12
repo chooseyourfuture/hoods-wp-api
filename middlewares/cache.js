@@ -19,7 +19,7 @@ function get(req, res, next){
     const content = cache.get(url);
     if(content){
         console.log('Getting cache from memory.');
-        return res.status(200).send(content)
+        return res.status(200).send(JSON.parse(content));
     }
     else{
         console.log('Continuing with the query.');
