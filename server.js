@@ -176,7 +176,7 @@ app.get('/posts/:post_id/image', async (req, res) => {
 
 // Get category posts by category slug
 
-app.get('/category/:slug/posts', async(req, res, next) => {
+app.get('/categories/:slug/posts', async(req, res, next) => {
 
     let slug = req.params.slug;
 
