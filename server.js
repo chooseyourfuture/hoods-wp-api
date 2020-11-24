@@ -176,15 +176,18 @@ app.get('/posts/:post_id/image', async (req, res) => {
 
 // Get category posts by category slug
 
-app.get('/categories/:slug/posts', async(req, res, next) => {
+app.get('/categories/:slugs/posts', async(req, res, next) => {
 
-    let slug = req.params.slug;
+    let slugs = req.params.slugs.split(',');
+    slugs.forEach((slug, index) => {
+        slugs[index] = '"' + slug + '"';
+    });
 
     let authorQuery = 'SELECT postmeta.meta_value FROM wp_usermeta postmeta WHERE user_id=posts.post_author AND meta_key="nickname"';
     let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
 
-    let taxonomyQuery = 'SELECT term_taxonomy_id FROM wp_terms INNER JOIN wp_term_taxonomy ON wp_terms.term_id = wp_term_taxonomy.term_id WHERE wp_terms.slug="' + slug + '" AND wp_term_taxonomy.taxonomy="category"';
-    let postIDQuery = 'SELECT object_id FROM wp_term_relationships WHERE term_taxonomy_id=(' + taxonomyQuery + ')';
+    let taxonomyQuery = 'SELECT term_taxonomy_id FROM wp_terms INNER JOIN wp_term_taxonomy ON wp_terms.term_id = wp_term_taxonomy.term_id WHERE wp_terms.slug IN (' + slugs.join(', ') + ') AND wp_term_taxonomy.taxonomy="category"';
+    let postIDQuery = 'SELECT object_id FROM wp_term_relationships WHERE term_taxonomy_id IN (' + taxonomyQuery + ') GROUP BY object_id HAVING COUNT(*) > ' + (slugs.length-1);
 
     // let postQuery = 'SELECT * FROM wp_posts WHERE post_type="post" AND post_status="publish" AND ID IN (' + postIDQuery + ')';
 
@@ -196,7 +199,7 @@ app.get('/categories/:slug/posts', async(req, res, next) => {
             res.end(JSON.stringify(error));
         }
         else{
-            results.forEach((item,index) => {
+            /* results.forEach((item,index) => {
 
                 let thumbnail = unserialize(item.post_thumbnail);
     
@@ -205,7 +208,7 @@ app.get('/categories/:slug/posts', async(req, res, next) => {
 
                 results[index].post_thumbnail = thumbnail;
     
-            });
+            }); */
     
             res.locals.data = JSON.stringify(results);
             // res.end(JSON.stringify(results));
