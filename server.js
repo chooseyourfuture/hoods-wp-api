@@ -173,3 +173,46 @@ app.get('/posts/:post_id/image', async (req, res) => {
     })
 
 });
+
+// Get category posts by category slug
+
+app.get('/category/:slug/posts', async(req, res, next) => {
+
+    let slug = req.params.slug;
+
+    let authorQuery = 'SELECT postmeta.meta_value FROM wp_usermeta postmeta WHERE user_id=posts.post_author AND meta_key="nickname"';
+    let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
+
+    let taxonomyQuery = 'SELECT term_taxonomy_id FROM wp_terms INNER JOIN wp_term_taxonomy ON wp_terms.term_id = wp_term_taxonomy.term_id WHERE wp_terms.slug="' + slug + '" AND wp_term_taxonomy.taxonomy="category"';
+    let postIDQuery = 'SELECT object_id FROM wp_term_relationships WHERE term_taxonomy_id=(' + taxonomyQuery + ')';
+
+    // let postQuery = 'SELECT * FROM wp_posts WHERE post_type="post" AND post_status="publish" AND ID IN (' + postIDQuery + ')';
+
+    let postQuery = 'SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author FROM wp_posts posts WHERE post_type="post" AND post_status="publish" AND ID IN (' + postIDQuery + ') ORDER BY post_date DESC';
+
+    pool.query(postQuery, (error, results, fields) => {
+        if(error){
+            console.log(error);
+            res.end(JSON.stringify(error));
+        }
+        else{
+            results.forEach((item,index) => {
+
+                let thumbnail = unserialize(item.post_thumbnail);
+    
+                let f = thumbnail.file.split('/');
+                thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+
+                results[index].post_thumbnail = thumbnail;
+    
+            });
+    
+            res.locals.data = JSON.stringify(results);
+            // res.end(JSON.stringify(results));
+            return next();
+        }
+    });
+
+}, cache.set, (req, res) => {
+    res.end(res.locals.data);
+});
