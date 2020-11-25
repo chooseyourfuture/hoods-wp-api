@@ -199,7 +199,7 @@ app.get('/categories/:slugs/posts', async(req, res, next) => {
             res.end(JSON.stringify(error));
         }
         else{
-            /* results.forEach((item,index) => {
+            results.forEach((item,index) => {
 
                 let thumbnail = unserialize(item.post_thumbnail);
     
@@ -208,7 +208,7 @@ app.get('/categories/:slugs/posts', async(req, res, next) => {
 
                 results[index].post_thumbnail = thumbnail;
     
-            }); */
+            });
     
             res.locals.data = JSON.stringify(results);
             // res.end(JSON.stringify(results));
