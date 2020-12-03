@@ -70,12 +70,19 @@ app.get('/posts', cache.get, async (req, res, next) => {
         else{
             results.forEach((item,index) => {
 
-                let thumbnail = unserialize(item.post_thumbnail);
+                // Check for post thumbnail
+                results[index]['post_thumbnail'] = formatThumbnail(item.post_thumbnail);
+                /* if(item.post_thumbnail !== undefined){
+                    let thumbnail = unserialize(item.post_thumbnail);
     
-                let f = thumbnail.file.split('/');
-                thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
-
-                results[index].post_thumbnail = thumbnail;
+                    let f = thumbnail.file.split('/');
+                    thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+    
+                    results[index].post_thumbnail = thumbnail;
+                }
+                else{
+                    results[index]['post_thumbnail'] = null;
+                } */
     
             });
     
@@ -107,10 +114,10 @@ app.get('/posts/:slug', cache.get, async (req, res, next) => {
 
             let post = results[0];
 
-            let thumbnail = unserialize(post.post_thumbnail);
+            /* let thumbnail = unserialize(post.post_thumbnail);
             let f = thumbnail.file.split('/');
-            thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
-            post['post_thumbnail'] = thumbnail;
+            thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/'; */
+            post['post_thumbnail'] = formatThumbnail(post.thumbnail);
 
             let content = post['post_content'].replace(/\"\/wp-content\//g, '"' + process.env.BASE_URL + '/wp-content/');
 
@@ -201,12 +208,12 @@ app.get('/categories/:slugs/posts', async(req, res, next) => {
         else{
             results.forEach((item,index) => {
 
-                let thumbnail = unserialize(item.post_thumbnail);
+                /* let thumbnail = unserialize(item.post_thumbnail);
     
                 let f = thumbnail.file.split('/');
-                thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+                thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/'; */
 
-                results[index].post_thumbnail = thumbnail;
+                results[index]['post_thumbnail'] = formatThumbnail(item.post_thumbnail);
     
             });
     
@@ -219,3 +226,19 @@ app.get('/categories/:slugs/posts', async(req, res, next) => {
 }, cache.set, (req, res) => {
     res.end(res.locals.data);
 });
+
+function formatThumbnail(post_thumbnail){
+    if(post_thumbnail !== undefined){
+        let thumbnail = unserialize(post_thumbnail);
+
+        let f = thumbnail.file.split('/');
+        thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
+
+        // results[index].post_thumbnail = thumbnail;
+        return thumbnail;
+    }
+    else{
+        // results[index]['post_thumbnail'] = null;
+        return null;
+    }
+}
