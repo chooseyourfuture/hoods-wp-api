@@ -228,7 +228,7 @@ app.get('/categories/:slugs/posts', async(req, res, next) => {
 });
 
 function formatThumbnail(post_thumbnail){
-    if(post_thumbnail !== undefined){
+    if(post_thumbnail !== undefined && post_thumbnail !== null){
         let thumbnail = unserialize(post_thumbnail);
 
         let f = thumbnail.file.split('/');
