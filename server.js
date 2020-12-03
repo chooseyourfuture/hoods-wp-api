@@ -60,8 +60,8 @@ app.get('/posts', cache.get, async (req, res, next) => {
 
     let authorQuery = 'SELECT postmeta.meta_value FROM wp_usermeta postmeta WHERE user_id=posts.post_author AND meta_key="nickname"';
     let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
-    // AND post_status="publish"
-    pool.query('SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author FROM wp_posts posts WHERE post_type="post" ORDER BY post_date DESC', (error, results, fields) => {
+    
+    pool.query('SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author FROM wp_posts posts WHERE post_type="post" AND post_status="publish" ORDER BY post_date DESC', (error, results, fields) => {
 
         if(error){
             console.log(error);
