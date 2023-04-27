@@ -8,9 +8,11 @@ var unserialize = require('locutus/php/var/unserialize');
 var compression = require('compression');
 var port = process.env.PORT || 1337;
 var cache = require('./middlewares/cache');
+var sanitize = require('sanitize');
 
 app.use(cors());
 app.use(compression());
+app.use(sanitize.middleware);
 
 var pool = mysql.createPool({
     // connectionLimit: 10,
@@ -58,10 +60,24 @@ function getFeaturedImage(post_id, meta_key){
 
 app.get('/posts', cache.get, async (req, res, next) => {
 
+    // Get free-text and category filters from query
+    const freeText = req.query.freeText;
+    const categories = req.query.categories;
+
+    // Author query which returns the author of the post
     let authorQuery = 'SELECT postmeta.meta_value FROM wp_usermeta postmeta WHERE user_id=posts.post_author AND meta_key="nickname"';
+
+    // Featured image query which returns the featured image of the post
     let featuredImageQuery = 'SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE meta_key="_wp_attachment_metadata" AND post_id=(SELECT postmeta.meta_value FROM wp_postmeta postmeta WHERE post_id=posts.ID AND meta_key="_thumbnail_id")';
 
-    pool.query('SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author FROM wp_posts posts WHERE post_type="post" AND post_status="publish" ORDER BY post_date DESC', (error, results, fields) => {
+    // Categories query which returns a concatenated list of categories
+    let categoriesQuery = 'SELECT GROUP_CONCAT(terms.slug) as categories FROM wp_terms terms INNER JOIN wp_term_taxonomy taxonomy ON taxonomy.term_id=terms.term_id INNER JOIN wp_term_relationships relationships ON relationships.term_taxonomy_id=taxonomy.term_taxonomy_id WHERE taxonomy.taxonomy="category" AND relationships.object_id=posts.ID';
+    
+    // Free text query which searches for the text in the post title and content
+    let freeTextQuery = freeText ? ' AND (posts.post_title LIKE "%'+freeText+'%" OR posts.post_content LIKE "%'+freeText+'%")' : '';
+
+    // Execute query
+    pool.query('SELECT ID, posts.post_date, posts.post_title, posts.post_name, posts.post_excerpt, ('+ featuredImageQuery +') as post_thumbnail, ('+ authorQuery +') as post_author, ('+ categoriesQuery +') as post_categories FROM wp_posts posts WHERE post_type="post" AND post_status="publish"' + freeTextQuery +' ORDER BY post_date DESC', (error, results, fields) => {
 
         if(error){
             console.log(error);
@@ -72,18 +88,19 @@ app.get('/posts', cache.get, async (req, res, next) => {
 
                 // Check for post thumbnail
                 results[index]['post_thumbnail'] = formatThumbnail(item.post_thumbnail);
-                /* if(item.post_thumbnail !== undefined){
-                    let thumbnail = unserialize(item.post_thumbnail);
+                
+                // Check for post categories
+                results[index]['post_categories'] = item.post_categories ? item.post_categories.split(',') : [];
     
-                    let f = thumbnail.file.split('/');
-                    thumbnail['base_url'] = process.env.BASE_URL + '/wp-content/uploads/' + f[0] + '/' + f[1] + '/';
-    
-                    results[index].post_thumbnail = thumbnail;
-                }
-                else{
-                    results[index]['post_thumbnail'] = null;
-                } */
-    
+            });
+            results = results.filter((item) => {
+
+                // Filter by category
+                let cat = categories ? categories.split(',') : [];
+                if(cat.length > 0){
+                    return item.post_categories.some(r => categories.includes(r));
+                } else return true;
+
             });
     
             res.locals.data = JSON.stringify(results);
